@@ -40,6 +40,9 @@ int modbustcp_adapter()
     // User reserved static IP addr for network 
     inet_pton(AF_INET, listening_IP_addr, &listen_addr.sin_addr);
     socklen_t listen_addrlen = sizeof(struct sockaddr_in);
+    struct sockaddr_storage their_addr; // connector's address information
+    socklen_t sin_size;
+    char addr_str[INET_ADDRSTRLEN];
 
     // TCP socket
     if ((sockfd = socket(PF_INET, SOCK_STREAM, 6)) == -1) {
@@ -73,6 +76,33 @@ int modbustcp_adapter()
     }
 
 
+    if (listen(sockfd, BACKLOG) == -1) {
+        perror("listen");
+        return -1;
+    }
+
+
+
+    // Need a loop that listens for both incoming connection requests
+    // and incoming controlMQ messages
+
+    while(1)
+    {
+        sin_size = sizeof their_addr;
+        new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
+        if (new_fd == -1) {
+            perror("accept");
+            continue;
+        }
+	
+        inet_ntop(their_addr.ss_family,
+		  &(((struct sockaddr_in *)&their_addr)->sin_addr),
+		    addr_str, sizeof addr_str);
+        printf("server: got connection from %s\n", addr_str);
+
+
+
+    }
 
 
 
