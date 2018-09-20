@@ -18,12 +18,26 @@
 #include <signal.h>
 #include <netinet/tcp.h>
 
+#include "controlmq_adapter.h"
+
+
 
 #define PORT 502  // Modbus TCP reserved port
 
 #define BACKLOG 1     // how many pending connections queue will hold
 
 const char* listening_IP_addr = "192.168.0.1";
+
+int client_fd = 0;  //  new connection on client_fd
+
+
+
+int handle_modbus_client_message(char *buf, int numbytes)
+{
+    int type = parse_modbus_message(buf, numbytes);
+
+
+}
 
 
 
@@ -32,7 +46,7 @@ int modbustcp_adapter()
 
     // Create listening socket for stub network for modbusTCP
     // client to connect.
-    int sockfd, new_fd;  // listen on sock_fd, new connection on new_fd
+    int sockfd;  // listen on sock_fd
     int yes = 1;
     struct sockaddr_in listen_addr;
     listen_addr.sin_family = AF_INET;
@@ -84,22 +98,42 @@ int modbustcp_adapter()
 
 
     // Need a loop that listens for both incoming connection requests
-    // and incoming controlMQ messages
+    // Client
+    // May need to make function that is called periodically
+    // May need O_NONBLOCK on socket
+
+    sin_size = sizeof their_addr;
+    client_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
+    if (client_fd == -1) {
+	perror("accept");
+	return -1;;
+    }
+    
+    inet_ntop(their_addr.ss_family,
+	      &(((struct sockaddr_in *)&their_addr)->sin_addr),
+	      addr_str, sizeof addr_str);
+    printf("server: got connection from %s\n", addr_str);
+    
+    
+    // send message to other adapter to connect
+    controlmq_adapter_connect();
+
+
+    // listen for messages from modbus on client_fd
+    int MAXDATASIZE = 1090;
+    char buf[MAXDATASIZE];
+    int numbytes = 0;
 
     while(1)
     {
-        sin_size = sizeof their_addr;
-        new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
-        if (new_fd == -1) {
-            perror("accept");
-            continue;
-        }
-	
-        inet_ntop(their_addr.ss_family,
-		  &(((struct sockaddr_in *)&their_addr)->sin_addr),
-		    addr_str, sizeof addr_str);
-        printf("server: got connection from %s\n", addr_str);
+	memset(buf, 0, MAXDATASIZE);
+	if((numbytes = recv(client_fd, buf, MAXDATASIZE-1, MSG_WAITALL)) == -1) 
+	{
+	    perror("recv");
+	    continue;
+	}
 
+	handle_modbus_client_message(buf, numbytes);
 
     }
 
