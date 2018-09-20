@@ -8,11 +8,12 @@
  *  receiving device.
  */
 
+#include "modbus_adapter.h"
 
 
 int main(int argc, char *argv[])
 {
 
-
+    modbustcp_adapter();
 
 }
