@@ -34,7 +34,7 @@ int client_fd = 0;  //  new connection on client_fd
 
 int handle_modbus_client_message(char *buf, int numbytes)
 {
-    int type = parse_modbus_message(buf, numbytes);
+    //int type = parse_modbus_message(buf, numbytes);
 
 
 }
@@ -52,7 +52,8 @@ int modbustcp_adapter()
     listen_addr.sin_family = AF_INET;
     listen_addr.sin_port = htons(PORT);  // ModbusTCP reserved port number
     // User reserved static IP addr for network 
-    inet_pton(AF_INET, listening_IP_addr, &listen_addr.sin_addr);
+    //inet_pton(AF_INET, listening_IP_addr, &listen_addr.sin_addr);
+    listen_addr.sin_addr.s_addr = INADDR_ANY;
     socklen_t listen_addrlen = sizeof(struct sockaddr_in);
     struct sockaddr_storage their_addr; // connector's address information
     socklen_t sin_size;
@@ -102,22 +103,28 @@ int modbustcp_adapter()
     // May need to make function that is called periodically
     // May need O_NONBLOCK on socket
 
-    sin_size = sizeof their_addr;
-    client_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
-    if (client_fd == -1) {
-	perror("accept");
-	return -1;;
+    // Modbus client may open multiple connections with server???
+    while(1)
+    {
+	// just because this connect on this side worked doesn't
+	// mean the other side worked.  If other side fails, must
+	// immediately send close();
+	sin_size = sizeof their_addr;
+	client_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
+	if (client_fd == -1) {
+	    perror("accept");
+	    return -1;;
+	}
+	
+	inet_ntop(their_addr.ss_family,
+		  &(((struct sockaddr_in *)&their_addr)->sin_addr),
+		  addr_str, sizeof addr_str);
+	printf("server: got connection from %s\n", addr_str);
+	
+	
+	// send message to other adapter to connect
+	controlmq_adapter_connect();
     }
-    
-    inet_ntop(their_addr.ss_family,
-	      &(((struct sockaddr_in *)&their_addr)->sin_addr),
-	      addr_str, sizeof addr_str);
-    printf("server: got connection from %s\n", addr_str);
-    
-    
-    // send message to other adapter to connect
-    controlmq_adapter_connect();
-
 
     // listen for messages from modbus on client_fd
     int MAXDATASIZE = 1090;
