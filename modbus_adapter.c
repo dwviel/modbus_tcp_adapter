@@ -101,7 +101,6 @@ int modbustcp_adapter()
         printf("server: got connection from %s\n", addr_str);
 
 
-
     }
 
 
