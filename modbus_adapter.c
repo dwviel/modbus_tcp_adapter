@@ -36,15 +36,16 @@
 
 #define BACKLOG 1  // how many pending connections queue will hold
 
-// IP addrs for test
+
 // lowest segment numbers must be the same
 // e.g. x.y.z.a and u.v.w.a
+const int IP_root_addr_max_len = 12;
 const char* adapter_IP_root_addr = "192.168.0.";
 const char* modbus_addr_str = "192.168.0.0";
 
+// IP addrs for test
 const char* node_IP_addr = "111.99.88.1";
 const char* node_IP_root_addr = "111.99.88.";
-const int IP_root_addr_max_len = 12;
 
 /** Adapter must support range of IP values.  
  *  ModbusTCP assumed to operate over lowest level subnet only.
@@ -56,12 +57,12 @@ const int IP_root_addr_max_len = 12;
  *  I.e. x.y.z.a becomes 192.168.0.a, but 0 is reserved.
 */
 
-// Assume only one connection per server for now
+// Assume only one connection per server for now!!!!
 // Use lowest level value as index.  e.g. for x.y.z.a, a is the index
 #define MAXMODBUSNODES 256
 int client_fd[MAXMODBUSNODES] = {0};  //  new connection on client_fd
 
-#define MAXDATASIZE 1090
+#define MAXCONTROLMQDATASIZE 1090
 
 int modbus_fd = 0;
 
@@ -160,6 +161,11 @@ int handle_modbus_client_request_server_side(uint16_t trans_id,
 					     uint8_t function,
 					     uint16_t request)
 {
+    if(modbus_fd <= 0)
+    {
+	return -1;
+    }
+
     // modbus buffer
     char modbusbuf[MODBUSREQSIZE] = {0};
 
@@ -293,7 +299,8 @@ int read_modbus_client_requests()
 {
     // Listen for messages from modbus on client_fd
     // client_fd sockets are nonblocking.
-    char buf[MAXDATASIZE];
+    char buf[MAXCONTROLMQDATASIZE];
+    buf[MAXCONTROLMQDATASIZE] = '\0';
     int numbytes = 0;
     
     // Node 0 is reserved.  I.e. subnet value 0 is reserved.
@@ -302,9 +309,10 @@ int read_modbus_client_requests()
     {
 	if(client_fd[ii] != 0)
 	{
-	    memset(buf, 0, MAXDATASIZE);
+	    memset(buf, 0, MAXCONTROLMQDATASIZE);
 	    if((numbytes = 
-		recv(client_fd[ii], buf, MAXDATASIZE-1, MSG_WAITALL)) == -1) 
+		recv(client_fd[ii], buf, MAXCONTROLMQDATASIZE-1, 
+		     MSG_WAITALL)) == -1) 
 	    {
 		//perror("recv");
 		continue;
