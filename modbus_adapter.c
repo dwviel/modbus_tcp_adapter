@@ -9,6 +9,8 @@
  */
 
 
+// change perror to log if make daemon!!!!
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -22,14 +24,16 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <netinet/tcp.h>
+#include <fcntl.h>
+#include <sys/file.h>
 
 #include "controlmq_adapter.h"
 
 
 
-#define PORT 502  // Modbus TCP reserved port
+#define PORT 502   // Modbus TCP reserved port
 
-#define BACKLOG 1     // how many pending connections queue will hold
+#define BACKLOG 1  // how many pending connections queue will hold
 
 const char* listening_IP_addr = "192.168.0.1";
 
@@ -48,11 +52,12 @@ const char* listening_IP_addr = "192.168.0.1";
 #define MAXMODBUSNODES 256
 int client_fd[MAXMODBUSNODES] = {0};  //  new connection on client_fd
 
+#define MAXDATASIZE 1090
 
 
-int handle_modbus_client_message(char *buf, int numbytes)
+int handle_modbus_client_request(char *buf, int numbytes)
 {
-    //int type = parse_modbus_message(buf, numbytes);
+
 
     return 0;
 }
@@ -107,12 +112,21 @@ int accept_modbus_client_connection(int sockfd)
 	return -1;;
     }
     
+    int flags = fcntl(tmp_fd, F_GETFL, 0);
+    if(flags == -1)
+    {
+	return -1;
+    }
+    fcntl(tmp_fd, F_SETFL, flags | O_NONBLOCK);
+    
+
     inet_ntop(their_addr.ss_family,
 	      &(((struct sockaddr_in *)&their_addr)->sin_addr),
 	      addr_str, sizeof addr_str);
     //printf("server: got connection from %s\n", addr_str);
     // Get lowest level subnet value, i.e. for x.y.z.a, get a
     int subnetval = get_lowest_subnet_value(addr_str);
+    // Lowest subnet 0 is reserved.
     if(subnetval != 0)
     {
 	client_fd[subnetval] = tmp_fd;
@@ -125,6 +139,59 @@ int accept_modbus_client_connection(int sockfd)
     return 0;
 }
 
+
+int close_modbus_client_connection_other_side(int lowest_subnet)
+{
+    // If the connection is lost on the other adapter side to its
+    // modbus device then this side must be closed to inform this
+    // side modbus device of loss of connection.
+    if( (lowest_subnet < 0) || (lowest_subnet > 255) )
+    {
+	return -1;
+    }
+
+    int res = close(client_fd[lowest_subnet]);
+    if(res == -1)
+    {
+	if(errno == EINTR) // try once more
+	{
+	    res = close(client_fd[lowest_subnet]);
+	    return res;
+	}
+    }
+
+    return 0;
+}
+
+
+int read_modbus_client_requests()
+{
+    // Listen for messages from modbus on client_fd
+    // client_fd sockets are nonblocking.
+    char buf[MAXDATASIZE];
+    int numbytes = 0;
+    
+    // Node 0 is reserved.  I.e. subnet value 0 is reserved.
+    int ii = 1;
+    for(ii=1; ii<MAXMODBUSNODES; ii++)
+    {
+	if(client_fd[ii] != 0)
+	{
+	    memset(buf, 0, MAXDATASIZE);
+	    if((numbytes = 
+		recv(client_fd[ii], buf, MAXDATASIZE-1, MSG_WAITALL)) == -1) 
+	    {
+		//perror("recv");
+		continue;
+	    }
+	    
+	    handle_modbus_client_request(buf, numbytes);
+	}
+
+    }
+
+    return 0;
+}
 
 int modbustcp_adapter()
 {
@@ -190,24 +257,6 @@ int modbustcp_adapter()
     {
   }
 
-    // listen for messages from modbus on client_fd
-    int MAXDATASIZE = 1090;
-    char buf[MAXDATASIZE];
-    int numbytes = 0;
-
-    while(1)
-    {
-	memset(buf, 0, MAXDATASIZE);
-	//if((numbytes = recv(client_fd, buf, MAXDATASIZE-1, MSG_WAITALL)) == -1) 
-	//{
-	//    perror("recv");
-	//    continue;
-	//}
-
-	handle_modbus_client_message(buf, numbytes);
-
-    }
-
-
+ 
 
 }
