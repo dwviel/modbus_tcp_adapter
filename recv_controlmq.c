@@ -73,5 +73,5 @@ int recv_controlmq_message()
 
     }
 
-
+    return 0;
 }

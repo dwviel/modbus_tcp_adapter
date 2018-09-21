@@ -2,6 +2,6 @@
 #define CONTROLMQ_ADAPTER
 
 
-int controlmq_adapter_connect();
+int controlmq_adapter_connect(int subnetval);
 
 #endif

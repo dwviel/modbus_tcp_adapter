@@ -13,7 +13,10 @@
 
 int main(int argc, char *argv[])
 {
+    char *ip_str = "1.2.3.400";
+    int val = get_lowest_subnet_value(ip_str);
 
     modbustcp_adapter();
 
+    return 0;
 }
