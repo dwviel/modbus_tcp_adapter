@@ -32,17 +32,19 @@
 
 
 
-#define PORT 502   // Modbus TCP reserved port
+#define MODBUSPORT 502   // Modbus TCP reserved port
 
 #define BACKLOG 1  // how many pending connections queue will hold
 
 // IP addrs for test
 // lowest segment numbers must be the same
 // e.g. x.y.z.a and u.v.w.a
-//const char* listening_IP_addr = "192.168.0.1";
+const char* adapter_IP_root_addr = "192.168.0.";
+const char* modbus_addr_str = "192.168.0.0";
+
 const char* node_IP_addr = "111.99.88.1";
 const char* node_IP_root_addr = "111.99.88.";
-const int node_IP_root_addr_max_len = 12;
+const int IP_root_addr_max_len = 12;
 
 /** Adapter must support range of IP values.  
  *  ModbusTCP assumed to operate over lowest level subnet only.
@@ -67,11 +69,87 @@ int modbus_fd = 0;
 
 
 
-int handle_modbus_client_connect_server_side()
+int get_lowest_subnet_value(char *ip_str)
 {
+    // ip_str expected to be 'dot' notation.  e.g. 145.22.89.3
+    // In this case 3 is the value returned.
+    char addr_str[INET_ADDRSTRLEN];
+    strncpy(addr_str, ip_str, INET_ADDRSTRLEN);
+    addr_str[INET_ADDRSTRLEN] = '\0';
+
+    char *substr = NULL;
+    substr = strtok(addr_str, ".");
+    substr = strtok(NULL, ".");
+    substr = strtok(NULL, ".");
+    substr = strtok(NULL, ".");
+
+    if(substr != NULL)
+    {
+	char *end = NULL;
+	int lowval = strtoul(substr, &end, 10);
+	if( (lowval < 0) || (lowval > 255) )
+	{
+	    return -1;
+	}
+	return lowval;
+    }
+
+    return -1; // error, or misconfigured server ip addr
+}
 
 
+int handle_modbus_client_connect_server_side(char *client_side_ip_addr)
+{
+    int lowsubval = get_lowest_subnet_value(client_side_ip_addr);
 
+    char adapter_addr_str[INET_ADDRSTRLEN];
+    strncpy(adapter_addr_str, adapter_IP_root_addr, INET_ADDRSTRLEN);
+    int tmp_len = strnlen(adapter_addr_str, IP_root_addr_max_len);
+    char lowseg[4];
+    sprintf(lowseg, "%d", lowsubval);
+    strncpy( (adapter_addr_str + tmp_len), lowseg, 3);
+    adapter_addr_str[INET_ADDRSTRLEN] = '\0';
+
+
+    if((modbus_fd = socket(PF_INET, SOCK_STREAM | SOCK_NONBLOCK, 6)) == -1)
+    {
+	perror("adapter: socket");
+	return -1;
+    }
+
+
+    // Bind to the equivilent local addr as lowest segment of client side node
+    struct sockaddr_in client_side_addr;
+    client_side_addr.sin_family = AF_INET;
+    client_side_addr.sin_port = htons(MODBUSPORT);
+    inet_pton(AF_INET, adapter_addr_str, &(client_side_addr.sin_addr));
+
+    if((bind(modbus_fd, (struct sockaddr*)&client_side_addr, 
+	     sizeof(struct sockaddr_in))) == -1)
+    {
+	perror("adapter: bind");
+	close(modbus_fd);
+	modbus_fd = 0;
+	return -1;	
+    }
+
+
+    struct sockaddr_in modbus_addr;
+    modbus_addr.sin_family = AF_INET;
+    modbus_addr.sin_port = htons(MODBUSPORT);
+    inet_pton(AF_INET, modbus_addr_str, &(modbus_addr.sin_addr));
+
+    if((connect(modbus_fd, (struct sockaddr*)&modbus_addr, 
+		sizeof(struct sockaddr_in))) == -1)
+    {
+	close(modbus_fd);
+	modbus_fd = 0;
+	perror("adapter: connect");
+	return -1;	
+    }
+
+
+    return 0;
 }
 
 
@@ -136,35 +214,6 @@ int handle_modbus_client_request(int lowsubval, char *buf, int numbytes)
 
 
     return 0;
-}
-
-
-int get_lowest_subnet_value(char *ip_str)
-{
-    // ip_str expected to be 'dot' notation.  e.g. 145.22.89.3
-    // In this case 3 is the value returned.
-    char addr_str[INET_ADDRSTRLEN];
-    strncpy(addr_str, ip_str, INET_ADDRSTRLEN);
-    addr_str[INET_ADDRSTRLEN] = '\0';
-
-    char *substr = NULL;
-    substr = strtok(addr_str, ".");
-    substr = strtok(NULL, ".");
-    substr = strtok(NULL, ".");
-    substr = strtok(NULL, ".");
-
-    if(substr != NULL)
-    {
-	char *end = NULL;
-	int lowval = strtoul(substr, &end, 10);
-	if( (lowval < 0) || (lowval > 255) )
-	{
-	    return -1;
-	}
-	return lowval;
-    }
-
-    return -1; // error, or misconfigured server ip addr
 }
 
 
@@ -278,7 +327,7 @@ int modbustcp_adapter()
     int yes = 1;
     struct sockaddr_in listen_addr;
     listen_addr.sin_family = AF_INET;
-    listen_addr.sin_port = htons(PORT);  // ModbusTCP reserved port number
+    listen_addr.sin_port = htons(MODBUSPORT);  // ModbusTCP reserved port number
     // User reserved static IP addr for network 
     //inet_pton(AF_INET, listening_IP_addr, &listen_addr.sin_addr);
     listen_addr.sin_addr.s_addr = INADDR_ANY;

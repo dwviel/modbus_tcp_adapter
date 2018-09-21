@@ -12,7 +12,7 @@
 
 
 extern const char* node_IP_root_addr;
-extern const int node_IP_root_addr_max_len;
+extern const int IP_root_addr_max_len;
 
 
 int controlmq_adapter_connect(int subnetval)
@@ -31,10 +31,10 @@ int controlmq_send_modbus_client_request(int lowsubval,
 					 uint8_t function,
 					 uint16_t request)
 {
-    // Target IP addr of other adapter
+    // Target IP addr of server side adapter
     char targ_addr_str[INET_ADDRSTRLEN];
     strncpy(targ_addr_str, node_IP_root_addr, INET_ADDRSTRLEN);
-    int tmp_len = strnlen(targ_addr_str, node_IP_root_addr_max_len);
+    int tmp_len = strnlen(targ_addr_str, IP_root_addr_max_len);
     char lowseg[4];
     sprintf(lowseg, "%d", lowsubval);
     strncpy( (targ_addr_str + tmp_len), lowseg, 3);
