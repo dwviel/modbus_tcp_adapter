@@ -11,6 +11,7 @@
 
 // change perror to log if make daemon!!!!
 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -35,7 +36,13 @@
 
 #define BACKLOG 1  // how many pending connections queue will hold
 
-const char* listening_IP_addr = "192.168.0.1";
+// IP addrs for test
+// lowest segment numbers must be the same
+// e.g. x.y.z.a and u.v.w.a
+//const char* listening_IP_addr = "192.168.0.1";
+const char* node_IP_addr = "111.99.88.1";
+const char* node_IP_root_addr = "111.99.88.";
+const int node_IP_root_addr_max_len = 12;
 
 /** Adapter must support range of IP values.  
  *  ModbusTCP assumed to operate over lowest level subnet only.
@@ -54,9 +61,78 @@ int client_fd[MAXMODBUSNODES] = {0};  //  new connection on client_fd
 
 #define MAXDATASIZE 1090
 
+int modbus_fd = 0;
 
-int handle_modbus_client_request(char *buf, int numbytes)
+#define MODBUSREQSIZE 10
+
+
+
+int handle_modbus_client_connect_server_side()
 {
+
+
+
+}
+
+
+int handle_modbus_client_request_server_side(uint16_t trans_id,
+					     uint16_t proto_id,
+					     uint16_t length,
+					     uint8_t unit_id,
+					     uint8_t function,
+					     uint16_t request)
+{
+    // modbus buffer
+    char modbusbuf[MODBUSREQSIZE] = {0};
+
+    char *buf = modbusbuf;
+ 
+    *(uint16_t*)buf = trans_id;
+    buf++;
+    *(uint16_t*)buf = proto_id;
+    buf++;
+    *(uint16_t*)buf = length;
+    buf++;
+    *(uint8_t*)buf = unit_id;
+    buf++;
+    *(uint8_t*)buf = function;
+    buf++;
+    *(uint16_t*)buf = request;
+
+    ssize_t ret = send(modbus_fd, (void*)buf, MODBUSREQSIZE, 0);
+
+    return 0;
+}
+
+
+int handle_modbus_client_request(int lowsubval, char *buf, int numbytes)
+{
+    if(numbytes < MODBUSREQSIZE)
+    {
+	// missing data
+	return -1;
+    }
+
+    uint16_t trans_id = *(uint16_t*)buf;
+    buf++;
+    uint16_t proto_id = *(uint16_t*)buf;
+    buf++;
+    uint16_t length = *(uint16_t*)buf;
+    buf++;
+    uint8_t unit_id = *(uint8_t*)buf;
+    buf++;
+    uint8_t function = *(uint8_t*)buf;
+    buf++;
+    uint16_t request = *(uint16_t*)buf;
+
+
+    return controlmq_send_modbus_client_request(lowsubval,
+						trans_id,
+						proto_id,
+						length,
+						unit_id,
+						function,
+						request);
 
 
     return 0;
@@ -185,7 +261,7 @@ int read_modbus_client_requests()
 		continue;
 	    }
 	    
-	    handle_modbus_client_request(buf, numbytes);
+	    handle_modbus_client_request(ii, buf, numbytes);
 	}
 
     }
@@ -252,11 +328,10 @@ int modbustcp_adapter()
     // May need to make function that is called periodically
     // May need O_NONBLOCK on socket
 
-    // Modbus client may open multiple connections with server???
-    while(1)
-    {
-  }
+    // Modbus client may open multiple connections with server
+
+    // Call ControlMQ setup and loop here
 
  
-
+    return 0;
 }

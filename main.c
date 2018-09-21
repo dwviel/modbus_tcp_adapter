@@ -9,12 +9,18 @@
  */
 
 #include "modbus_adapter.h"
-
+#include "controlmq_adapter.h"
 
 int main(int argc, char *argv[])
 {
-    char *ip_str = "1.2.3.400";
-    int val = get_lowest_subnet_value(ip_str);
+//    char *ip_str = "1.2.3.400";
+    //  int val = get_lowest_subnet_value(ip_str);
+
+    int val = controlmq_send_modbus_client_request(111, 1, 2, 3, 4, 5, 6);
+
+
+
+
 
     modbustcp_adapter();
 
