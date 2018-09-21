@@ -17,7 +17,7 @@ extern const int IP_root_addr_max_len;
 
 int controlmq_adapter_connect(int subnetval)
 {
-    // Send controlMQ connect message to other adapter 
+    // Send controlMQ connect message to server side adapter 
 
     return 0;
 }
