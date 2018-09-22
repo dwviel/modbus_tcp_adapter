@@ -76,7 +76,7 @@ int get_lowest_subnet_value(char *ip_str)
     // In this case 3 is the value returned.
     char addr_str[INET_ADDRSTRLEN];
     strncpy(addr_str, ip_str, INET_ADDRSTRLEN);
-    addr_str[INET_ADDRSTRLEN] = '\0';
+    addr_str[INET_ADDRSTRLEN-1] = '\0';
 
     char *substr = NULL;
     substr = strtok(addr_str, ".");
@@ -109,7 +109,7 @@ int handle_modbus_client_connect_server_side(char *client_side_ip_addr)
     char lowseg[4];
     sprintf(lowseg, "%d", lowsubval);
     strncpy( (adapter_addr_str + tmp_len), lowseg, 3);
-    adapter_addr_str[INET_ADDRSTRLEN] = '\0';
+    adapter_addr_str[INET_ADDRSTRLEN-1] = '\0';
 
 
     if((modbus_fd = socket(PF_INET, SOCK_STREAM | SOCK_NONBLOCK, 6)) == -1)
@@ -167,7 +167,7 @@ int handle_modbus_client_request_server_side(uint16_t trans_id,
     }
 
     // modbus buffer
-    char modbusbuf[MODBUSREQSIZE] = {0};
+    char modbusbuf[MODBUSREQSIZE-1] = {0};
 
     char *buf = modbusbuf;
  
@@ -300,7 +300,7 @@ int read_modbus_client_requests()
     // Listen for messages from modbus on client_fd
     // client_fd sockets are nonblocking.
     char buf[MAXCONTROLMQDATASIZE];
-    buf[MAXCONTROLMQDATASIZE] = '\0';
+    buf[MAXCONTROLMQDATASIZE-1] = '\0';
     int numbytes = 0;
     
     // Node 0 is reserved.  I.e. subnet value 0 is reserved.

@@ -38,7 +38,7 @@ int controlmq_send_modbus_client_request(int lowsubval,
     char lowseg[4];
     sprintf(lowseg, "%d", lowsubval);
     strncpy( (targ_addr_str + tmp_len), lowseg, 3);
-    targ_addr_str[INET_ADDRSTRLEN] = '\0';
+    targ_addr_str[INET_ADDRSTRLEN-1] = '\0';
 
     // Call ControlMQ send function
 /*    return send_reliable_modbus_client_request(targ_addr_str,
